@@ -1,0 +1,9 @@
+{
+  "transaction_id": "12345-abcde-67890",
+  "amount": 50.75,
+  "currency": "INR",
+  "timestamp": 1699999999,
+  "metadata": {
+    "source": "txn-pipeline-sentinel"
+  }
+}

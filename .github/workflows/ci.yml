@@ -2,14 +2,14 @@ name: pytest-ci
 
 on:
   push:
-    branches: [ main, "feat/**" ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -22,53 +22,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Optional: bring up mock services (if you include docker-compose for a mock API)
-      - name: Start mock server (optional)
-        if: ${{ always() }} # remove or guard with a repo secret if you want conditional start
-        run: |
-          if [ -f docker-compose.yml ]; then
-            sudo apt-get update -y
-            sudo apt-get install -y docker-compose
-            docker-compose up -d
-          else
-            echo "No docker-compose file present — skipping"
-          fi
-
-      - name: Configure GCP credentials (optional)
-        if: ${{ secrets.GCP_SA_KEY != '' }}
-        run: |
-          echo "${{ secrets.GCP_SA_KEY }}" > $HOME/gcp-key.json
-          echo "Wrote GCP key to $HOME/gcp-key.json"
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-
       - name: Run pytest
         env:
-          # provide your API endpoint & BigQuery values as secrets in the repo
           API_BASE: ${{ secrets.API_BASE }}
           BQ_PROJECT: ${{ secrets.BQ_PROJECT }}
           BQ_DATASET: ${{ secrets.BQ_DATASET }}
           BQ_TABLE: ${{ secrets.BQ_TABLE }}
-          # if GCP key was written above, point GOOGLE_APPLICATION_CREDENTIALS to it
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SA_KEY != '' && format('{0}', '/home/runner/gcp-key.json') || '' }}
-        run: |
-          # if we created the key above, move it to expected path
-          if [ -f "$HOME/gcp-key.json" ]; then
-            mv $HOME/gcp-key.json /home/runner/gcp-key.json || true
-            export GOOGLE_APPLICATION_CREDENTIALS=/home/runner/gcp-key.json
-          fi
-          pytest -q --maxfail=1 --disable-warnings || pytest_exit=$?
-          echo "pytest exit: ${pytest_exit:-0}"
-          # produce an HTML report if pytest-html is in requirements
-          if python -c "import pytest_html" 2>/dev/null; then
-            pytest --html=report.html || true
-          fi
-          exit ${pytest_exit:-0}
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-report
-          path: |
-            report.html
-            ./**/__pycache__ | true
+        run: pytest -q --maxfail=1
