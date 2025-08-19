@@ -1,0 +1,35 @@
+name: nightly-bq-validations
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # daily at 01:00 UTC (adjust as required)
+  workflow_dispatch: {}
+
+jobs:
+  bq-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Configure GCP credentials
+        run: |
+          echo "${{ secrets.GCP_SA_KEY }}" > $HOME/gcp-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=$HOME/gcp-key.json
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Run BigQuery validations
+        env:
+          BQ_PROJECT: ${{ secrets.BQ_PROJECT }}
+          BQ_DATASET: ${{ secrets.BQ_DATASET }}
+          BQ_TABLE: ${{ secrets.BQ_TABLE }}
+        run: |
+          pytest tests/test_bq_validations.py -q --maxfail=1
